@@ -1,0 +1,279 @@
+# ---------------------------------------------------------------------------
+# Research sources for the AI Newsletter Agent
+#
+# The research tool never crawls "the internet": it only reads the feeds and
+# sitemaps listed below. `topics`/`keywords` are used to rank which sources are
+# worth querying for a given set of planner research queries, `weight` nudges
+# the deterministic quality score of an article.
+#
+# type: rss         -> parsed with feedparser (standard RSS/Atom feeds)
+# type: hackernews  -> free Algolia JSON API (Hacker News search); the first
+#                      `keywords` entry is the query and hits carry the real
+#                      publisher URL - no redirect decoding involved
+# type: sitemap     -> bounded XML sitemap crawl, articles extracted with
+#                      news-please (disabled by default, opt-in)
+# ---------------------------------------------------------------------------
+version: 1
+
+http:
+  user_agent: "Mozilla/5.0 (compatible; AINewsletterAgent/1.0; +https://github.com/your-user/ai-newsletter-agent)"
+  timeout_seconds: 20
+  max_items_per_source: 25
+  default_recency_window_days: 14
+  max_workers: 4
+  enrich_full_text: true
+  enrich_limit: 12
+  # When false, sitemap sources are resolved by this project (requests +
+  # news-please extraction). When true, the optional news-please/scrapy
+  # SitemapCrawler runs in an isolated subprocess instead.
+  sitemap_use_news_please_spider: false
+
+sources:
+  # --- AI / technology news outlets -----------------------------------------
+  - id: techcrunch_ai
+    name: TechCrunch AI
+    url: https://techcrunch.com/category/artificial-intelligence/feed/
+    type: rss
+    category: ai_news
+    topics: [ai_agents, ai_products, funding]
+    keywords: [agent, agents, agentic, llm, startup, funding, product, launch]
+    weight: 1.0
+
+  - id: venturebeat_ai
+    name: VentureBeat AI
+    url: https://venturebeat.com/category/ai/feed/
+    type: rss
+    category: ai_news
+    topics: [ai_agents, enterprise_ai, ai_products]
+    keywords: [agent, agentic, enterprise, llm, copilot, deployment]
+    weight: 0.95
+
+  - id: theverge_ai
+    name: The Verge AI
+    url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+    type: rss
+    category: ai_news
+    topics: [ai_products, ai_agents]
+    keywords: [ai, chatbot, assistant, openai, google, agent, model]
+    weight: 0.9
+
+  - id: wired_ai
+    name: WIRED AI
+    url: https://www.wired.com/feed/tag/ai/latest/rss
+    type: rss
+    category: ai_news
+    topics: [ai_products, ai_policy]
+    keywords: [ai, agents, automation, model, policy, research]
+    weight: 0.9
+
+  - id: arstechnica_ai
+    name: Ars Technica AI
+    url: https://arstechnica.com/ai/feed/
+    type: rss
+    category: ai_news
+    topics: [ai_infrastructure, ai_agents]
+    keywords: [ai, llm, gpu, infrastructure, agent, model]
+    weight: 0.9
+
+  - id: mit_technology_review_ai
+    name: MIT Technology Review - AI
+    url: https://www.technologyreview.com/topic/artificial-intelligence/feed
+    type: rss
+    category: ai_research
+    topics: [ai_research, ai_policy, ai_agents]
+    keywords: [research, ai, agents, model, study, safety]
+    weight: 0.95
+
+  - id: zdnet_ai
+    name: ZDNET AI
+    url: https://www.zdnet.com/topic/artificial-intelligence/rss.xml
+    type: rss
+    category: ai_news
+    topics: [enterprise_ai, ai_products]
+    keywords: [enterprise, ai, agent, automation, tooling]
+    weight: 0.8
+
+  - id: the_register_ai
+    name: The Register - AI/ML
+    url: https://www.theregister.com/software/ai_ml/headlines.atom
+    type: rss
+    category: ai_news
+    topics: [ai_infrastructure, ai_agents]
+    keywords: [ai, ml, infrastructure, chip, openai, google, agent]
+    weight: 0.8
+
+  - id: ai_news
+    name: AI News
+    url: https://www.artificialintelligence-news.com/feed/
+    type: rss
+    category: ai_news
+    topics: [ai_agents, enterprise_ai]
+    keywords: [ai, agent, enterprise, adoption, tooling]
+    weight: 0.7
+
+  - id: analytics_india_magazine
+    name: Analytics India Magazine
+    url: https://analyticsindiamag.com/feed/
+    type: rss
+    category: ai_news
+    topics: [ai_agents, ai_research]
+    keywords: [ai, agent, framework, llm, research]
+    weight: 0.7
+
+  # --- Vendor / lab engineering blogs ---------------------------------------
+  - id: openai_news
+    name: OpenAI News
+    url: https://openai.com/news/rss.xml
+    type: rss
+    category: ai_labs
+    topics: [ai_products, ai_agents, foundation_models]
+    keywords: [gpt, agent, api, model, release, tool]
+    weight: 1.0
+
+  - id: google_ai_blog
+    name: Google AI Blog
+    url: https://blog.google/technology/ai/rss/
+    type: rss
+    category: ai_labs
+    topics: [foundation_models, ai_products]
+    keywords: [gemini, model, agent, google, research]
+    weight: 1.0
+
+  - id: deepmind_blog
+    name: Google DeepMind Blog
+    url: https://deepmind.google/blog/rss.xml
+    type: rss
+    category: ai_research
+    topics: [foundation_models, ai_research]
+    keywords: [research, model, agent, reasoning, benchmark]
+    weight: 1.0
+
+  - id: huggingface_blog
+    name: Hugging Face Blog
+    url: https://huggingface.co/blog/feed.xml
+    type: rss
+    category: ai_research
+    topics: [open_source_ai, ai_agents, ai_infrastructure]
+    keywords: [agent, open source, model, inference, tool, dataset]
+    weight: 0.95
+
+  - id: microsoft_ai_blog
+    name: Microsoft AI Blog
+    url: https://blogs.microsoft.com/ai/feed/
+    type: rss
+    category: ai_labs
+    topics: [enterprise_ai, ai_agents, ai_products]
+    keywords: [copilot, agent, enterprise, azure, ai]
+    weight: 0.9
+
+  - id: nvidia_blog
+    name: NVIDIA Blog
+    url: https://blogs.nvidia.com/feed/
+    type: rss
+    category: ai_infrastructure
+    topics: [ai_infrastructure, foundation_models]
+    keywords: [gpu, inference, training, infrastructure, model]
+    weight: 0.85
+
+  - id: aws_machine_learning_blog
+    name: AWS Machine Learning Blog
+    url: https://aws.amazon.com/blogs/machine-learning/feed/
+    type: rss
+    category: ai_infrastructure
+    topics: [ai_infrastructure, ai_agents, enterprise_ai]
+    keywords: [bedrock, agent, rag, inference, architecture]
+    weight: 0.85
+
+  - id: langchain_blog
+    name: LangChain Blog
+    url: https://blog.langchain.dev/rss/
+    type: rss
+    category: ai_agents
+    topics: [ai_agents, agent_frameworks]
+    keywords: [langgraph, agent, agentic, orchestration, framework, tool]
+    weight: 1.0
+
+  - id: simonwillison
+    name: Simon Willison's Weblog
+    url: https://simonwillison.net/atom/everything/
+    type: rss
+    category: ai_engineering
+    topics: [ai_agents, agent_frameworks, ai_engineering]
+    keywords: [llm, agent, tool, prompt, evaluation, mcp]
+    weight: 0.95
+
+  - id: infoq_ai_ml
+    name: InfoQ AI/ML
+    url: https://feed.infoq.com/ai-ml-data-eng/
+    type: rss
+    category: ai_engineering
+    topics: [ai_engineering, ai_infrastructure, ai_agents]
+    keywords: [architecture, agent, rag, platform, engineering]
+    weight: 0.8
+
+  - id: the_gradient
+    name: The Gradient
+    url: https://thegradient.pub/rss/
+    type: rss
+    category: ai_research
+    topics: [ai_research, ai_policy]
+    keywords: [research, agents, policy, model, analysis]
+    weight: 0.8
+
+  - id: arxiv_cs_ai
+    name: arXiv cs.AI
+    url: https://rss.arxiv.org/rss/cs.AI
+    type: rss
+    category: ai_research
+    topics: [ai_research, ai_agents]
+    keywords: [agent, llm, benchmark, reasoning, paper]
+    weight: 0.7
+
+  # --- Hacker News (free Algolia JSON API, no key, no rate limits) -----------
+  # type: hackernews: the first `keywords` entry is the search query, and every
+  # hit carries the real publisher URL (no Google-News-style redirects).
+  - id: hackernews_ai
+    name: Hacker News AI
+    url: https://hn.algolia.com/api/v1/search
+    type: hackernews
+    category: community
+    topics: [ai_agents, ai_research]
+    keywords: ["AI"]
+    weight: 0.9
+    max_items: 12
+
+  - id: hackernews_llm
+    name: Hacker News LLM
+    url: https://hn.algolia.com/api/v1/search
+    type: hackernews
+    category: community
+    topics: [ai_agents, foundation_models]
+    keywords: ["LLM"]
+    weight: 0.85
+    max_items: 10
+
+  # --- Sitemap based sources (opt-in, disabled by default) -------------------
+  # Bounded sitemap crawling: the sitemap is read, URLs are filtered by the
+  # research queries, and the matching articles are extracted with news-please.
+  # Enable one by setting `enabled: true` (or by naming it in the plan).
+  - id: anthropic_news
+    name: Anthropic News
+    url: https://www.anthropic.com/sitemap.xml
+    type: sitemap
+    category: ai_labs
+    topics: [foundation_models, ai_agents, ai_safety]
+    keywords: [claude, agent, model, safety, tool use, mcp]
+    weight: 1.0
+    enabled: false
+    max_items: 8
+
+  - id: meta_ai_blog
+    name: Meta AI Blog
+    url: https://ai.meta.com/sitemap.xml
+    type: sitemap
+    category: ai_labs
+    topics: [foundation_models, open_source_ai]
+    keywords: [llama, model, research, agent]
+    weight: 0.9
+    enabled: false
+    max_items: 8

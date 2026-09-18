@@ -1,0 +1,98 @@
+{% set issue = newsletter -%}
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{ issue.subject }}</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; padding: 24px 12px; background: #f4f5f7; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1c1e21; }
+  .wrap { max-width: 720px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
+  .masthead { padding: 28px 32px 20px; border-bottom: 1px solid #e6e8eb; }
+  .kicker { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #6b7280; margin: 0 0 8px; }
+  h1 { font-size: 26px; line-height: 1.25; margin: 0 0 10px; }
+  .preheader { color: #4b5563; font-size: 15px; margin: 0; }
+  .body { padding: 8px 32px 28px; }
+  .intro { font-size: 16px; line-height: 1.6; color: #374151; border-left: 3px solid #6366f1; padding-left: 14px; margin: 20px 0 28px; }
+  .section { padding: 22px 0; border-top: 1px solid #eceef1; }
+  .section:first-of-type { border-top: 0; }
+  .section h2 { font-size: 19px; line-height: 1.35; margin: 0 0 6px; }
+  .meta { font-size: 12.5px; color: #6b7280; margin: 0 0 10px; }
+  .summary { font-size: 15.5px; line-height: 1.62; margin: 0 0 10px; }
+  .points { margin: 0 0 10px; padding-left: 20px; font-size: 14.5px; line-height: 1.55; color: #374151; }
+  .points li { margin-bottom: 2px; }
+  .why { font-size: 14.5px; line-height: 1.55; margin: 0 0 10px; color: #1f2937; }
+  .why strong { color: #4338ca; }
+  a.link { font-size: 13.5px; color: #4338ca; text-decoration: none; }
+  .conclusion { margin: 26px 0 8px; padding: 16px 18px; background: #f8f9fb; border-radius: 10px; font-size: 15px; line-height: 1.6; }
+  .sources, .footer { padding: 20px 32px; font-size: 12.5px; color: #6b7280; }
+  .sources { border-top: 1px solid #eceef1; }
+  .sources h3, .footer h3 { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 10px; }
+  .sources ol { margin: 0; padding-left: 18px; }
+  .sources li { margin-bottom: 6px; line-height: 1.5; }
+  .footer { background: #fafbfc; border-top: 1px solid #eceef1; }
+  .footer dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 12px; }
+  .footer dt { color: #9ca3af; }
+  .footer dd { margin: 0; }
+  .badge { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #4338ca; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <p class="kicker">{{ newsletter_topic }}{% if frequency %} &middot; {{ frequency }}{% endif %}</p>
+    <h1>{{ issue.subject }}</h1>
+    <p class="preheader">{{ issue.preheader }}</p>
+  </header>
+
+  <main class="body">
+    <p class="intro">{{ issue.introduction }}</p>
+
+    {% for section in sections %}
+    <article class="section">
+      <h2>{{ loop.index }}. {{ section.headline }}</h2>
+      <p class="meta">{{ section.source }}{% if section.author %} &middot; {{ section.author }}{% endif %}{% if section.published_at %} &middot; {{ section.published_at }}{% endif %}</p>
+      <p class="summary">{{ section.summary }}</p>
+      {% if section.key_points %}
+      <ul class="points">
+        {% for point in section.key_points %}<li>{{ point }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      <p class="why"><strong>Why it matters:</strong> {{ section.why_it_matters }}</p>
+      <a class="link" href="{{ section.article_url }}">Read the full story &rarr;</a>
+    </article>
+    {% endfor %}
+
+    <p class="conclusion">{{ issue.conclusion }}</p>
+  </main>
+
+  <section class="sources">
+    <h3>Sources</h3>
+    <ol>
+      {% for section in sections %}
+      <li>{{ section.source }} &mdash; <a href="{{ section.article_url }}">{{ section.article_title }}</a>{% if section.published_at %} ({{ section.published_at }}){% endif %}</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <footer class="footer">
+    <h3>About this issue</h3>
+    <p>
+      {% for badge in badges %}<span class="badge">{{ badge }}</span>{% endfor %}
+    </p>
+    <dl>
+      <dt>Goal</dt><dd>{{ goal }}</dd>
+      <dt>Generated</dt><dd>{{ generated_at }}</dd>
+      {% if model_name %}<dt>Model</dt><dd>{{ model_name }}</dd>{% endif %}
+      {% if article_count %}<dt>Articles</dt><dd>{{ article_count }} selected from {{ candidate_count }} candidate(s)</dd>{% endif %}
+      {% if revision_count %}<dt>Revisions</dt><dd>{{ revision_count }} after review</dd>{% endif %}
+      {% if critique_status %}<dt>Review</dt><dd>{{ critique_status }}</dd>{% endif %}
+    </dl>
+    {% if simulated_delivery_note %}<p>{{ simulated_delivery_note }}</p>{% endif %}
+    <p>{{ attribution }}</p>
+    <p>{{ disclaimer }}</p>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,376 @@
+version: 1
+newsletter:
+  target_articles: 6
+  min_articles: 5
+  max_articles: 7
+  hard_min_articles: 1
+  hard_max_articles: 12
+  min_sections: 1
+  max_sections: 12
+  output_formats:
+  - html+markdown
+  - html
+  - markdown
+  audit:
+    coverage_trigger: 5
+    min_covered_sections: 5
+    min_summary_chars: 80
+  fallback_requirements:
+  - Lead with the most consequential story.
+  - Summarise each story in 2-3 sentences using only the supplied source material.
+  - Explain in one sentence why each story matters to the reader.
+  - Keep a neutral, professional tone and avoid hype.
+  - Never introduce facts, names, numbers or links that are not in the sources.
+scoring:
+  min_score: 0.0
+  max_score: 1.0
+  weights:
+    relevance: 0.5
+    quality: 0.3
+    recency: 0.2
+  min_relevance: 0.35
+  min_content_chars: 400
+  unknown_date_recency: 0.5
+  fallback_horizon_days: 30
+  title_hit_weight: 2.0
+  body_hit_weight: 1.0
+  keyword_hits_cap: 3
+  source_weight_default: 0.6
+  quality_boosters:
+  - analysis
+  - benchmark
+  - dataset
+  - documentation
+  - engineering
+  - evaluation
+  - interview
+  - open source
+  - research
+  - roadmap
+  - study
+  - technical
+  quality_penalties:
+  - advertorial
+  - best deals
+  - coupon
+  - giveaway
+  - horoscope
+  - press release
+  - sponsored
+  - webinar
+  - top 10
+llm:
+  text_chars:
+    evaluation: 700
+    summary: 3000
+    critique: 2000
+  temperatures:
+    goal_parsing: 0.0
+    planning: 0.2
+    evaluation: 0.0
+    summary: 0.1
+    generation: 0.3
+    revision: 0.4
+    critique: 0.1
+  evaluation_max_selected: 7
+planning:
+  min_queries: 4
+  max_queries: 8
+  min_requirements: 3
+  max_requirements: 6
+  min_collect: 10
+  max_collect: 100
+writing:
+  max_topics: 3
+  summary_min_points: 2
+  summary_max_points: 4
+  summary_min_sentences: 2
+  summary_max_sentences: 3
+  section_min_sentences: 2
+  section_max_sentences: 3
+  intro_min_sentences: 2
+  intro_max_sentences: 3
+heuristics:
+  topic_keywords:
+    AI agents:
+    - agent
+    - agentic
+    - langgraph
+    - tool calling
+    - multi-agent
+    - mcp
+    - copilot
+    LLM research:
+    - research
+    - paper
+    - benchmark
+    - reasoning
+    - arxiv
+    - study
+    AI infrastructure:
+    - infrastructure
+    - gpu
+    - inference
+    - chip
+    - datacenter
+    - compute
+    - nvidia
+    AI products:
+    - product
+    - launch
+    - app
+    - feature
+    - release
+    - assistant
+    - chatbot
+    AI policy:
+    - policy
+    - regulation
+    - law
+    - eu
+    - government
+    - safety
+    - risk
+    AI startups:
+    - startup
+    - funding
+    - investment
+    - series
+    - valuation
+    - acquisition
+    open source AI:
+    - open source
+    - open-source
+    - llama
+    - weights
+    - hugging face
+  generic_goal_words:
+  - create
+  - write
+  - generate
+  - make
+  - build
+  - curate
+  - summarize
+  - summarise
+  - newsletter
+  - weekly
+  - daily
+  - monthly
+  - please
+  - about
+  - with
+  - that
+  - latest
+  - articles
+  - stories
+  - issues
+  - issue
+  - report
+  - roundup
+  - professional
+  fallback_topic: technology news
+  min_goal_chars: 5
+  frequency_hints:
+    daily:
+    - daily
+    - every day
+    - each morning
+    weekly:
+    - weekly
+    - every week
+    - each week
+    - this week
+    biweekly:
+    - biweekly
+    - fortnightly
+    - every two weeks
+    monthly:
+    - monthly
+    - every month
+    - this month
+  default_frequency: weekly
+  audience_patterns:
+  - \bfor ([A-Za-z0-9 ,&/\-]{3,60})
+  - \baudience of ([A-Za-z0-9 ,&/\-]{3,60})
+  - \baimed at ([A-Za-z0-9 ,&/\-]{3,60})
+  article_count_patterns:
+  - (\d{1,2})\s*(?:articles|stories|items|pieces|sections)
+  - top\s*(\d{1,2})
+  human_in_loop_hints:
+  - human in the loop
+  - human-in-the-loop
+  - approve
+  - approval
+  - review
+  - sign off
+  format_hints:
+    markdown:
+    - markdown
+    - .md
+    html:
+    - html
+research:
+  stopwords:
+  - the
+  - and
+  - for
+  - with
+  - that
+  - this
+  - from
+  - into
+  - about
+  - over
+  - latest
+  - news
+  - recent
+  - update
+  - updates
+  - week
+  - weekly
+  - month
+  - monthly
+  - newsletter
+  - agent
+  - agents
+  - article
+  - articles
+  - summary
+  - summaries
+  - please
+  - want
+  - need
+  - should
+  - would
+  - could
+  - make
+  - create
+  - write
+  - their
+  - them
+  - they
+  - have
+  - has
+  - are
+  - was
+  - were
+  - will
+  - your
+  - today
+  - yesterday
+  - new
+  min_term_length: 3
+  max_terms: 60
+  sitemap_child_limit: 2
+  sitemap_skip_extensions:
+  - .jpg
+  - .jpeg
+  - .png
+  - .svg
+  - .gif
+  - .pdf
+  - .zip
+  - .gz
+  - .mp4
+  - .webp
+  url_skip_fragments:
+  - /tag/
+  - /tags/
+  - /category/
+  - /author/
+  - /page/
+  - '#'
+  - ?utm_
+rendering:
+  templates_dir: config/templates
+  html_template: newsletter.html.j2
+  markdown_template: newsletter.md.j2
+  filename:
+    prefix: newsletter
+    subject_slug_chars: 48
+    timestamp_format: '%Y%m%d-%H%M%S'
+  footer:
+    attribution: Compiled automatically from the linked sources listed below.
+    disclaimer: AI Newsletter Agent - all facts are taken from the cited articles.
+  simulated_delivery_note: 'SIMULATED SEND: no email provider is configured, so the
+    issue is written to the outputs/ folder and rendered in the UI instead of being
+    emailed.'
+deduplication:
+  title_threshold: 0.9
+  jaccard_weight: 0.5
+  tracking_params:
+  - utm_source
+  - utm_medium
+  - utm_campaign
+  - utm_term
+  - utm_content
+  - utm_id
+  - utm_name
+  - utm_reader
+  - fbclid
+  - gclid
+  - dclid
+  - msclkid
+  - mc_cid
+  - mc_eid
+  - igshid
+  - ref
+  - referrer
+  - source
+  - spm
+  - cmpid
+  - sh
+  - at_medium
+  - at_campaign
+  - ito
+  - guccounter
+  - __twitter_impression
+  host_prefixes:
+  - www.
+  - amp.
+  - m.
+  - mobile.
+  path_suffixes:
+  - /index.html
+  - /index.htm
+  - /index.php
+  - /print
+  - /print.html
+  - /rss
+  - /feed
+  - /amp
+  - /amp/
+  - /amp.html
+  title_entities:
+    '&amp;': '&'
+    '&#39;': ''''
+    '&apos;': ''''
+    '&quot;': '"'
+    '&nbsp;': ' '
+  filler_words:
+  - the
+  - a
+  - an
+  - of
+  - and
+  - to
+  - in
+  - 'on'
+  - for
+  - with
+  - how
+  - why
+  - what
+  - is
+  - are
+  - it
+  - its
+  - new
+  - says
+  - this
+  - that
+  - will
+  - from
+  - at
+  - by

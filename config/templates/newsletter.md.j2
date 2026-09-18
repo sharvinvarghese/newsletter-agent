@@ -1,0 +1,62 @@
+# {{ newsletter.subject }}
+
+> {{ newsletter.preheader }}
+>
+> **Goal:** {{ goal }}{% if audience %} · **Audience:** {{ audience }}{% endif %}{% if frequency %} · **Cadence:** {{ frequency }}{% endif %}
+
+{{ newsletter.introduction }}
+
+---
+
+{% for section in sections -%}
+## {{ loop.index }}. {{ section.headline }}
+
+*{{ section.source }}{% if section.author %}, {{ section.author }}{% endif %}{% if section.published_at %} — {{ section.published_at }}{% endif %}*
+
+{{ section.summary }}
+{% if section.key_points %}
+{% for point in section.key_points -%}
+- {{ point }}
+{% endfor %}
+{% endif %}
+**Why it matters:** {{ section.why_it_matters }}
+
+[Read the full story]({{ section.article_url }})
+
+---
+{% endfor %}
+{{ newsletter.conclusion }}
+
+## Sources
+
+{% for section in sections -%}
+{{ loop.index }}. [{{ section.source }} — {{ section.article_title }}]({{ section.article_url }})
+{% endfor %}
+---
+
+*{{ attribution }}*
+{% if simulated_delivery_note %}
+*{{ simulated_delivery_note }}*
+{% endif %}
+<details>
+<summary>Run metadata</summary>
+
+- Goal: {{ goal }}
+- Generated: {{ generated_at }}
+{%- if model_name %}
+- Model: {{ model_name }}
+{%- endif %}
+{%- if article_count %}
+- Articles: {{ article_count }} selected from {{ candidate_count }} candidate(s)
+{%- endif %}
+{%- if revision_count %}
+- Revisions: {{ revision_count }}
+{%- endif %}
+{%- if critique_status %}
+- Review: {{ critique_status }}
+{%- endif %}
+- Status: {{ badges | join(', ') }}
+
+</details>
+
+*{{ disclaimer }}*

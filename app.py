@@ -332,11 +332,44 @@ if isinstance(final, dict) and final:
                 "last_working_provider": provider,
             })
         
-        # Success toast with file paths
-        st.toast(f"✅ Newsletter saved! HTML: {Path(result.html_path).name if result.html_path else 'N/A'}", icon="🎉")
+        # Show success dialog with file info and download buttons
+        @st.dialog("✅ Newsletter Generated Successfully!", width="large")
+        def show_success_dialog():
+            st.write(f"**{len(result.summaries)} section(s), {result.revision_count} revision(s)** — Tokens: {progress.input_tokens:,} in / {progress.output_tokens:,} out — {progress.elapsed:.1f}s total.")
+            
+            if result.html_path:
+                st.write(f"📄 **HTML saved:** `{Path(result.html_path).name}`")
+                st.download_button(
+                    "📥 Download HTML",
+                    data=result.html_content,
+                    file_name=Path(result.html_path).name,
+                    mime="text/html",
+                    use_container_width=True,
+                    key="dl_html_dialog"
+                )
+            if result.markdown_path:
+                st.write(f"📄 **Markdown saved:** `{Path(result.markdown_path).name}`")
+                st.download_button(
+                    "📥 Download Markdown",
+                    data=result.markdown_content,
+                    file_name=Path(result.markdown_path).name,
+                    mime="text/markdown",
+                    use_container_width=True,
+                    key="dl_md_dialog"
+                )
+            if result.run_json_path and save_intermediate:
+                st.write(f"📋 **Run artifact:** `{Path(result.run_json_path).name}`")
+            if result.articles_xlsx_path and save_intermediate:
+                st.write(f"📊 **Articles:** `{Path(result.articles_xlsx_path).name}`")
+            if result.summaries_json_path and save_intermediate:
+                st.write(f"📝 **Summaries:** `{Path(result.summaries_json_path).name}`")
+            if getattr(result, "run_id", None):
+                st.caption(f"Run ID: {result.run_id}")
         
-        st.success(f"Newsletter complete — {len(result.summaries)} section(s), {result.revision_count} revision(s). "
-                 f"Tokens: {progress.input_tokens:,} in / {progress.output_tokens:,} out — {progress.elapsed:.1f}s total.")
+        # Trigger the dialog on first render after success
+        if "success_shown" not in st.session_state:
+            st.session_state.success_shown = True
+            show_success_dialog()
     elif result is not None:
         st.warning(f"Newsletter finished with issues — {len(result.summaries)} section(s). "
                    f"Tokens: {progress.input_tokens:,} in / {progress.output_tokens:,} out — {progress.elapsed:.1f}s total.")
@@ -344,6 +377,10 @@ if isinstance(final, dict) and final:
         st.error("The run did not produce a result.")
         st.code("\n".join(final.get("errors") or []) or "No errors recorded; the graph ended early.")
         st.stop()
+
+    # Reset success_shown flag when there's a new run
+    if "success_shown" in st.session_state and st.session_state.generating:
+        st.session_state.success_shown = False
 
     newsletter = result.newsletter
     if newsletter is not None:

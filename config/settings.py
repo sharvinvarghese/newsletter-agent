@@ -1,9 +1,9 @@
 """Central configuration for the AI Newsletter Agent.
 
 Every knob is read from an environment variable (optionally loaded from ``.env``),
-so no secret and no tunable value is hardcoded inside the agent logic. The
-OpenRouter model defaults to ``openrouter/free`` but can be swapped with the
-``OPENROUTER_MODEL`` environment variable at any time.
+or from Streamlit secrets (for Streamlit Cloud deployment), so no secret and no
+tunable value is hardcoded inside the agent logic. The OpenRouter model defaults
+to ``openrouter/free`` but can be swapped with the ``OPENROUTER_MODEL`` variable.
 """
 
 from __future__ import annotations
@@ -27,9 +27,29 @@ LOGGER_NAME = "newsletter_agent"
 load_dotenv(PROJECT_ROOT / ".env", override=True)
 
 
-def _env_str(name: str, default: str = "") -> str:
+def _get_secret(name: str, default: str = "") -> str:
+    """Get a secret from environment variables or Streamlit secrets."""
+    # Environment variables take priority
     value = os.getenv(name)
-    return value.strip() if isinstance(value, str) and value.strip() else default
+    if value is not None and value.strip():
+        return value.strip()
+    
+    # Fall back to Streamlit secrets (only available in Streamlit context)
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and name in st.secrets:
+            secret_value = st.secrets[name]
+            if secret_value is not None and str(secret_value).strip():
+                return str(secret_value).strip()
+    except Exception:
+        pass
+    
+    return default
+
+
+def _env_str(name: str, default: str = "") -> str:
+    value = _get_secret(name)
+    return value if value else default
 
 
 def _env_int(name: str, default: int, minimum: int | None = None, maximum: int | None = None) -> int:

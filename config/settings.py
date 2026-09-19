@@ -2,8 +2,7 @@
 
 Every knob is read from an environment variable (optionally loaded from ``.env``),
 or from Streamlit secrets (for Streamlit Cloud deployment), so no secret and no
-tunable value is hardcoded inside the agent logic. The OpenRouter model defaults
-to ``openrouter/free`` but can be swapped with the ``OPENROUTER_MODEL`` variable.
+tunable value is hardcoded inside the agent logic.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 DEFAULT_SOURCES_PATH = CONFIG_DIR / "sources.yaml"
 DEFAULT_OUTPUTS_DIR = PROJECT_ROOT / "outputs"
-DEFAULT_MODEL = "openrouter/free"
+DEFAULT_MODEL = "qwen/qwen3.8-27b"
 LOGGER_NAME = "newsletter_agent"
 
 # Loaded once; real environment variables always win over the .env file.
@@ -93,27 +92,12 @@ class Settings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # --- OpenRouter ---------------------------------------------------------
-    openrouter_api_key: SecretStr | None = Field(
-        default=None,
-        description="Bearer token for OpenRouter. Never logged, never rendered.",
-    )
-    openrouter_model: str = _env_str("OPENROUTER_MODEL", DEFAULT_MODEL)
-    openrouter_fallback_models: list[str] = Field(
-        default_factory=lambda: _env_list("OPENROUTER_FALLBACK_MODELS")
-    )
-    openrouter_app_url: str = ""
-    openrouter_app_name: str = ""
-    openrouter_require_parameters: bool = False
-    openrouter_response_healing: bool = False
-
-    # --- Groq (fast alternative provider) -----------------------------------
-    provider: str = _env_str("PROVIDER", "openrouter")
+    # --- Groq ---------------------------------------------------------
     groq_api_key: SecretStr | None = Field(
         default=None,
         description="Bearer token for Groq. Never logged, never rendered.",
     )
-    groq_model: str = _env_str("GROQ_MODEL", "openai/gpt-oss-20b")
+    groq_model: str = _env_str("GROQ_MODEL", DEFAULT_MODEL)
     groq_fallback_models: list[str] = Field(
         default_factory=lambda: _env_list("GROQ_FALLBACK_MODELS")
     )
@@ -122,7 +106,7 @@ class Settings(BaseModel):
     # --- LLM behaviour ------------------------------------------------------
     llm_temperature: float = 0.2
     llm_max_tokens: int = 4096
-    llm_timeout_seconds: float = _env_float("OPENROUTER_TIMEOUT_SECONDS", 120.0, minimum=1.0)
+    llm_timeout_seconds: float = _env_float("LLM_TIMEOUT_SECONDS", 120.0, minimum=1.0)
     llm_max_attempts: int = 2
     #: Send ``strict: true`` when asking for JSON-Schema structured output.
     #: Set LLM_STRICT_JSON_SCHEMA=false if a provider rejects strict schemas.
@@ -150,7 +134,7 @@ class Settings(BaseModel):
     outputs_dir: Path = DEFAULT_OUTPUTS_DIR
     log_level: str = "INFO"
 
-    @field_validator("openrouter_model", mode="before")
+    @field_validator("groq_model", mode="before")
     @classmethod
     def _model_fallback(cls, value: Any) -> Any:
         return value.strip() if isinstance(value, str) and value.strip() else DEFAULT_MODEL
@@ -163,19 +147,10 @@ class Settings(BaseModel):
     @classmethod
     def from_env(cls) -> Settings:
         """Build settings from the process environment (and ``.env``)."""
-        key = _env_str("OPENROUTER_API_KEY")
         groq_key = _env_str("GROQ_API_KEY") or _env_str("groqkey")
         return cls(
-            openrouter_api_key=SecretStr(key) if key else None,
-            openrouter_model=_env_str("OPENROUTER_MODEL", DEFAULT_MODEL),
-            openrouter_fallback_models=_env_list("OPENROUTER_FALLBACK_MODELS"),
-            openrouter_app_url=_env_str("OPENROUTER_APP_URL"),
-            openrouter_app_name=_env_str("OPENROUTER_APP_NAME"),
-            openrouter_require_parameters=_env_bool("OPENROUTER_REQUIRE_PARAMETERS"),
-            openrouter_response_healing=_env_bool("OPENROUTER_RESPONSE_HEALING"),
-            provider=_env_str("PROVIDER", "openrouter"),
             groq_api_key=SecretStr(groq_key) if groq_key else None,
-            groq_model=_env_str("GROQ_MODEL", "qwen/qwen3.8-27b"),
+            groq_model=_env_str("GROQ_MODEL", DEFAULT_MODEL),
             groq_fallback_models=_env_list("GROQ_FALLBACK_MODELS"),
             groq_base_url=_env_str("GROQ_BASE_URL", ""),
             llm_temperature=_env_float("LLM_TEMPERATURE", 0.2, minimum=0.0),
@@ -203,17 +178,6 @@ class Settings(BaseModel):
 
     # --- helpers ------------------------------------------------------------
     @property
-    def has_api_key(self) -> bool:
-        return self.api_key() is not None
-
-    def api_key(self) -> str | None:
-        """The OpenRouter key from settings, if one was configured."""
-        if self.openrouter_api_key is None:
-            return None
-        value = self.openrouter_api_key.get_secret_value().strip()
-        return value or None
-
-    @property
     def has_groq(self) -> bool:
         """True when a Groq API key is configured."""
         if self.groq_api_key is None:
@@ -232,12 +196,8 @@ class Settings(BaseModel):
         """Models to try in order: the configured one, then any fallbacks."""
         if model_override:
             return [model_override]
-        if self.provider == "groq":
-            base = self.groq_model
-            fallbacks = self.groq_fallback_models
-        else:
-            base = self.openrouter_model
-            fallbacks = self.openrouter_fallback_models
+        base = self.groq_model
+        fallbacks = self.groq_fallback_models
         models: list[str] = []
         for candidate in [base, *fallbacks]:
             if candidate and candidate.strip() and candidate.strip() not in models:
@@ -245,7 +205,7 @@ class Settings(BaseModel):
         return models
 
     def active_model(self, model_override: str | None = None) -> str:
-        """The model slug that will be used (respects provider + override)."""
+        """The model slug that will be used (respects override)."""
         candidates = self.candidate_models(model_override)
         return candidates[0] if candidates else DEFAULT_MODEL
 
@@ -256,8 +216,7 @@ class Settings(BaseModel):
 
     def safe_snapshot(self) -> dict[str, Any]:
         """Serialisable view that never contains the API key."""
-        data = self.model_dump(mode="json", exclude={"openrouter_api_key", "groq_api_key"})
-        data["api_key_configured"] = self.has_api_key
+        data = self.model_dump(mode="json", exclude={"groq_api_key"})
         data["groq_key_configured"] = self.has_groq
         return data
 

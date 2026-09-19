@@ -2,7 +2,7 @@
 
 Nodes never build their own LLM client or research tool: they receive an
 :class:`AgentDeps` instance. That keeps every node unit-testable with fakes -
-no API key, no network - and keeps the OpenRouter wiring in exactly one place.
+no API key, no network - and keeps the Groq wiring in exactly one place.
 """
 
 from __future__ import annotations
@@ -45,15 +45,15 @@ class AgentDeps:
         return {
             "settings": self.settings.safe_snapshot(),
             "llm": {
-                "primary_model": getattr(self.llm, "primary_model", self.settings.openrouter_model),
-                "models": list(getattr(self.llm, "models", []) or [self.settings.openrouter_model]),
+                "primary_model": getattr(self.llm, "primary_model", self.settings.groq_model),
+                "models": list(getattr(self.llm, "models", []) or [self.settings.groq_model]),
             },
             "research_tool": type(self.research).__name__,
         }
 
     def cache_key(self) -> str:
         """Stable key so compiled graphs (and checkpoints) can be reused."""
-        models = ",".join(getattr(self.llm, "models", []) or [self.settings.openrouter_model])
+        models = ",".join(getattr(self.llm, "models", []) or [self.settings.groq_model])
         return "|".join(
             [
                 models,
@@ -64,6 +64,24 @@ class AgentDeps:
                 str(self.settings.max_articles_to_collect),
             ]
         )
+
+
+def build_deps(
+    settings: Settings | None = None,
+    *,
+    model: str | None = None,
+    llm: StructuredInvoker | None = None,
+    research: ResearchProvider | None = None,
+    **overrides: Any,
+) -> AgentDeps:
+    """Create the default dependencies (or accept injected fakes for tests)."""
+    active = (settings or get_settings()).with_overrides(**overrides)
+    return AgentDeps(
+        settings=active,
+        llm=llm or StructuredLLM(settings=active, model=model),
+        research=research or NewsResearchTool(settings=active),
+        on_progress=None,
+    )
 
 
 def build_deps(

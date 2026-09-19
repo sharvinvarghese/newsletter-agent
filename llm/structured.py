@@ -1,18 +1,9 @@
-"""Structured LLM output on top of OpenRouter.
+"""Structured LLM output on top of Groq.
 
-Three tiers are tried, in order:
-
-1. ``method="json_schema"`` - provider side JSON-Schema enforcement.
-2. ``method="function_calling"`` - tool/function calling, for models whose
-   endpoints do not implement ``response_format: json_schema``.
-3. A manually prompted JSON object, parsed and validated with the *same*
-   Pydantic model. This is the only place in the codebase where a raw model
-   string is parsed, and its output still has to pass Pydantic before it is
-   allowed to leave this module.
-
-Each tier is retried once with a corrective message when Pydantic rejects the
-output, and the whole cycle moves on to the next model from
-``OPENROUTER_FALLBACK_MODELS`` before giving up. The agent therefore never
+Uses ``method="json_schema"`` - provider side JSON-Schema enforcement via
+``with_structured_output``. The call is retried once with a corrective message
+when Pydantic rejects the output, and the whole cycle moves on to the next model
+from ``GROQ_FALLBACK_MODELS`` before giving up. The agent therefore never
 receives unvalidated data: this module returns a validated Pydantic model or
 raises :class:`StructuredOutputError`.
 """
@@ -58,16 +49,6 @@ class _TokenUsageHandler(BaseCallbackHandler):
         if isinstance(usage, dict):
             self.input_tokens += int(usage.get("prompt_tokens", usage.get("input_tokens", 0)) or 0)
             self.output_tokens += int(usage.get("completion_tokens", usage.get("output_tokens", 0)) or 0)
-
-
-#: Strategies in the order they are attempted.
-DEFAULT_STRATEGIES: tuple[str, ...] = ("json_schema", "function_calling", "json_object")
-
-_JSON_INSTRUCTION = (
-    "Return ONLY a single JSON object that validates against this JSON Schema. "
-    "Do not wrap it in markdown code fences and do not add commentary.\n"
-    "JSON Schema:\n{schema}"
-)
 
 
 class StructuredOutputError(RuntimeError):
@@ -193,12 +174,9 @@ class StructuredLLM:
 
         Groq's ChatGroq only supports ``json_schema`` via ``with_structured_output``;
         the other strategies make extra API calls that always fail, so we limit
-        to ``json_schema`` to avoid wasting rate-limit budget. OpenRouter supports
-        all three.
+        to ``json_schema`` to avoid wasting rate-limit budget.
         """
-        if self.settings.provider == "groq":
-            return ("json_schema",)
-        return DEFAULT_STRATEGIES
+        return ("json_schema",)
 
     # --- public API ---------------------------------------------------------
     def invoke(
@@ -267,29 +245,18 @@ class StructuredLLM:
         handler = _TokenUsageHandler()
         config = {"callbacks": [handler]}
 
-        if strategy == "json_schema":
-            result = self._structured_chain(llm, schema, "json_schema").invoke(messages, config=config)
-            self.last_token_usage = {"input": handler.input_tokens, "output": handler.output_tokens}
-            return result
-        if strategy == "function_calling":
-            result = self._structured_chain(llm, schema, "function_calling").invoke(messages, config=config)
-            self.last_token_usage = {"input": handler.input_tokens, "output": handler.output_tokens}
-            return result
-        if strategy == "json_object":
-            schema_text = json.dumps(schema.model_json_schema(), ensure_ascii=False)
-            bound = llm.bind(response_format={"type": "json_object"})
-            response = bound.invoke([*messages, user_message(_JSON_INSTRUCTION.format(schema=schema_text))], config=config)
-            self.last_token_usage = {"input": handler.input_tokens, "output": handler.output_tokens}
-            return parse_json_payload(getattr(response, "content", response))
-        raise ValueError(f"Unknown structured-output strategy: {strategy}")
+        # Only json_schema strategy for Groq
+        result = self._structured_chain(llm, schema, "json_schema").invoke(messages, config=config)
+        self.last_token_usage = {"input": handler.input_tokens, "output": handler.output_tokens}
+        return result
 
     def _structured_chain(self, llm: Any, schema: type[ModelT], method: str) -> Any:
         """Build ``with_structured_output`` with strict mode when supported."""
         if method == "json_schema" and self.settings.llm_strict_json_schema:
             try:
                 return llm.with_structured_output(schema, method=method, strict=True)
-            except TypeError:  # pragma: no cover - older langchain-openrouter
-                logger.debug("This langchain-openrouter version does not accept strict=True.")
+            except TypeError:  # pragma: no cover - older langchain-groq
+                logger.debug("This langchain-groq version does not accept strict=True.")
         return llm.with_structured_output(schema, method=method)
 
     # --- validation ---------------------------------------------------------

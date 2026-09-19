@@ -47,6 +47,7 @@ class AgentDeps:
             "llm": {
                 "primary_model": getattr(self.llm, "primary_model", self.settings.groq_model),
                 "models": list(getattr(self.llm, "models", []) or [self.settings.groq_model]),
+                "call_count": getattr(self.llm, "call_count", 0),
             },
             "research_tool": type(self.research).__name__,
         }
@@ -64,24 +65,6 @@ class AgentDeps:
                 str(self.settings.max_articles_to_collect),
             ]
         )
-
-
-def build_deps(
-    settings: Settings | None = None,
-    *,
-    model: str | None = None,
-    llm: StructuredInvoker | None = None,
-    research: ResearchProvider | None = None,
-    **overrides: Any,
-) -> AgentDeps:
-    """Create the default dependencies (or accept injected fakes for tests)."""
-    active = (settings or get_settings()).with_overrides(**overrides)
-    return AgentDeps(
-        settings=active,
-        llm=llm or StructuredLLM(settings=active, model=model),
-        research=research or NewsResearchTool(settings=active),
-        on_progress=None,
-    )
 
 
 def build_deps(

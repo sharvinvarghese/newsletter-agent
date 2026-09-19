@@ -1,11 +1,7 @@
-"""Structured LLM output on top of Groq.
+"""Structured LLM output using Pydantic validation only.
 
-Uses ``method="json_schema"`` - provider side JSON-Schema enforcement via
-``with_structured_output``. The call is retried once with a corrective message
-when Pydantic rejects the output, and the whole cycle moves on to the next model
-from ``GROQ_FALLBACK_MODELS`` before giving up. The agent therefore never
-receives unvalidated data: this module returns a validated Pydantic model or
-raises :class:`StructuredOutputError`.
+Uses ``response_format=json_object`` (widely supported) and validates with Pydantic.
+No provider-side JSON Schema enforcement - all validation happens locally.
 """
 
 from __future__ import annotations
@@ -29,11 +25,18 @@ logger = logging.getLogger("newsletter_agent.llm.structured")
 ModelT = TypeVar("ModelT", bound=BaseModel)
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
+_JSON_INSTRUCTION = (
+    "Return ONLY a single JSON object that validates against this JSON Schema. "
+    "Do not wrap it in markdown code fences and do not add commentary.\n"
+    "JSON Schema:\n{schema}"
+)
+
 
 def _is_rate_limit(exc: Exception) -> bool:
     """True when the exception represents a 429 / rate-limit response."""
     text = str(exc).lower()
     return "429" in text or "rate limit" in text or "too many requests" in text or "otp" in text
+
 
 class _TokenUsageHandler(BaseCallbackHandler):
     """Captures input/output token counts from the LangChain response."""
@@ -129,10 +132,12 @@ def parse_json_payload(text: Any) -> Any:
 
 
 class StructuredLLM:
-    """OpenRouter chat models behind a Pydantic-validated ``invoke``.
+    """Groq chat models behind a Pydantic-validated ``invoke``.
 
-    ``last_call`` records which model/strategy produced the most recent
-    successful response, so the nodes can report it in the execution log.
+    Uses ``response_format=json_object`` and validates with Pydantic locally.
+    Each call is retried once with a corrective message when Pydantic rejects
+    the output, and the whole cycle moves on to the next model from
+    ``GROQ_FALLBACK_MODELS`` before giving up.
     """
 
     def __init__(
@@ -144,19 +149,18 @@ class StructuredLLM:
         api_key: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        strategies: Sequence[str] | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.strategies = tuple(strategies or self._default_strategies())
         self.models = list(models) if models else candidate_models(self.settings, model)
         if not self.models:
             self.models = [model_name(self.settings)]
         self.last_call: dict[str, Any] = {}
         self.last_token_usage: dict[str, int] = {}
         self._model_cache: dict[str, Any] = {}
+        self.call_count: int = 0
 
     # --- introspection ------------------------------------------------------
     @property
@@ -168,15 +172,6 @@ class StructuredLLM:
         if len(self.models) == 1:
             return self.primary_model
         return f"{self.primary_model} (fallbacks: {', '.join(self.models[1:])})"
-
-    def _default_strategies(self) -> tuple[str, ...]:
-        """Pick strategies appropriate for the active provider.
-
-        Groq's ChatGroq only supports ``json_schema`` via ``with_structured_output``;
-        the other strategies make extra API calls that always fail, so we limit
-        to ``json_schema`` to avoid wasting rate-limit budget.
-        """
-        return ("json_schema",)
 
     # --- public API ---------------------------------------------------------
     def invoke(
@@ -192,40 +187,38 @@ class StructuredLLM:
         failures: list[str] = []
 
         for model in self.models:
-            for strategy in self.strategies:
-                correction = ""
-                for attempt in (1, 2):
-                    payload = prepared if attempt == 1 else [*prepared, user_message(correction)]
-                    try:
-                        raw = self._call(model, strategy, schema, payload, temperature, max_tokens)
-                    except Exception as exc:
-                        detail = redact_secrets(exc).strip().replace("\n", " ")[:300]
-                        failures.append(f"{model} / {strategy}: {detail}")
-                        logger.warning("Structured call failed (%s / %s): %s", model, strategy, detail)
-                        if _is_rate_limit(exc):
-                            _time.sleep(1.0)  # brief backoff before next model
-                        break
+            correction = ""
+            for attempt in (1, 2):
+                payload = prepared if attempt == 1 else [*prepared, user_message(correction)]
+                try:
+                    raw = self._call(model, schema, payload, temperature, max_tokens)
+                except Exception as exc:
+                    detail = redact_secrets(exc).strip().replace("\n", " ")[:300]
+                    failures.append(f"{model}: {detail}")
+                    logger.warning("Structured call failed (%s): %s", model, detail)
+                    if _is_rate_limit(exc):
+                        _time.sleep(1.0)  # brief backoff before next model
+                    break
 
-                    validated, error = self._validate(schema, raw)
-                    if validated is not None:
-                        self.last_call = {
-                            "schema": schema.__name__,
-                            "model": model,
-                            "strategy": strategy,
-                            "attempt": attempt,
-                        }
-                        logger.debug("Structured call ok (%s / %s / attempt %d)", model, strategy, attempt)
-                        return validated
+                validated, error = self._validate(schema, raw)
+                if validated is not None:
+                    self.call_count += 1
+                    self.last_call = {
+                        "schema": schema.__name__,
+                        "model": model,
+                        "attempt": attempt,
+                    }
+                    logger.debug("Structured call ok (%s / attempt %d)", model, attempt)
+                    return validated
 
-                    failures.append(f"{model} / {strategy}: {error[:200]}")
-                    logger.warning(
-                        "Structured output for %s failed validation (%s / %s): %s",
-                        schema.__name__,
-                        model,
-                        strategy,
-                        error[:300],
-                    )
-                    correction = self._correction_text(schema, error)
+                failures.append(f"{model}: {error[:200]}")
+                logger.warning(
+                    "Structured output for %s failed validation (%s): %s",
+                    schema.__name__,
+                    model,
+                    error[:300],
+                )
+                correction = self._correction_text(schema, error)
 
         raise StructuredOutputError(
             f"Could not obtain valid {schema.__name__} output. Last attempts: " + " | ".join(failures[-5:])
@@ -235,7 +228,6 @@ class StructuredLLM:
     def _call(
         self,
         model: str,
-        strategy: str,
         schema: type[ModelT],
         messages: list[BaseMessage],
         temperature: float | None,
@@ -245,19 +237,11 @@ class StructuredLLM:
         handler = _TokenUsageHandler()
         config = {"callbacks": [handler]}
 
-        # Only json_schema strategy for Groq
-        result = self._structured_chain(llm, schema, "json_schema").invoke(messages, config=config)
+        schema_text = json.dumps(schema.model_json_schema(), ensure_ascii=False)
+        bound = llm.bind(response_format={"type": "json_object"})
+        response = bound.invoke([*messages, user_message(_JSON_INSTRUCTION.format(schema=schema_text))], config=config)
         self.last_token_usage = {"input": handler.input_tokens, "output": handler.output_tokens}
-        return result
-
-    def _structured_chain(self, llm: Any, schema: type[ModelT], method: str) -> Any:
-        """Build ``with_structured_output`` with strict mode when supported."""
-        if method == "json_schema" and self.settings.llm_strict_json_schema:
-            try:
-                return llm.with_structured_output(schema, method=method, strict=True)
-            except TypeError:  # pragma: no cover - older langchain-groq
-                logger.debug("This langchain-groq version does not accept strict=True.")
-        return llm.with_structured_output(schema, method=method)
+        return parse_json_payload(getattr(response, "content", response))
 
     # --- validation ---------------------------------------------------------
     def _validate(self, schema: type[ModelT], raw: Any) -> tuple[ModelT | None, str]:

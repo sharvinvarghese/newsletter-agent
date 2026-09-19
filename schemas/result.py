@@ -53,6 +53,7 @@ class AgentResult(AgentModel):
     summaries_json_path: str | None = None
     generated_at: str = Field(default_factory=_utc_now)
     run_id: str | None = Field(default=None, description="Short unique ID for the run (folder name fragment).")
+    llm_call_count: int = Field(default=0, description="Number of LLM calls made during this run.")
 
     @property
     def selected_count(self) -> int:

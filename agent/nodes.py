@@ -823,6 +823,7 @@ def save_output(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
         summaries_json_path=summaries_path,
         run_json_path=None,
         run_id=run_id,
+        llm_call_count=getattr(deps.llm, "call_count", 0),
     )
     if save_intermediate:
         try:

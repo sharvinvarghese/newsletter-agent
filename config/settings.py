@@ -2,7 +2,12 @@
 
 Every knob is read from an environment variable (optionally loaded from ``.env``),
 or from Streamlit secrets (for Streamlit Cloud deployment), so no secret and no
+<<<<<<< HEAD
 tunable value is hardcoded inside the agent logic.
+=======
+tunable value is hardcoded inside the agent logic. The OpenRouter model defaults
+to ``openrouter/free`` but can be swapped with the ``OPENROUTER_MODEL`` variable.
+>>>>>>> 6e132963f48a8d8a8f197a3a066d820b5841ba40
 """
 
 from __future__ import annotations
